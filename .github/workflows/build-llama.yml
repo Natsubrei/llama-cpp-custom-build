@@ -63,13 +63,43 @@ jobs:
       - name: Verify build
         shell: powershell
         run: |
-          .\build\bin\Release\llama-server.exe --version
-
+          $bin = "build\bin\Release"
+      
+          if (!(Test-Path "$bin\llama-server.exe")) {
+            throw "llama-server.exe was not built"
+          }
+      
+          if (!(Test-Path "$bin\ggml-cuda.dll")) {
+            throw "ggml-cuda.dll was not built"
+          }
+      
+          $cache = Get-Content "build\CMakeCache.txt"
+      
+          $required = @(
+            "GGML_CUDA:BOOL=ON",
+            "GGML_CUDA_FA:BOOL=ON",
+            "GGML_CUDA_FA_ALL_QUANTS:BOOL=ON"
+          )
+      
+          foreach ($item in $required) {
+            if (-not ($cache -match [regex]::Escape($item))) {
+              throw "Missing required build option: $item"
+            }
+          }
+      
+          Write-Host ""
+          Write-Host "===== CUDA build verified ====="
+          Write-Host "llama-server.exe: OK"
+          Write-Host "ggml-cuda.dll: OK"
+          Write-Host "GGML_CUDA: ON"
+          Write-Host "GGML_CUDA_FA: ON"
+          Write-Host "GGML_CUDA_FA_ALL_QUANTS: ON"
+      
           Write-Host ""
           Write-Host "===== CUDA build configuration ====="
           Select-String `
             -Path "build\CMakeCache.txt" `
-            -Pattern "GGML_CUDA|GGML_CUDA_FA|CMAKE_CUDA_ARCHITECTURES"
+            -Pattern "GGML_CUDA|CMAKE_CUDA_ARCHITECTURES"
 
       - name: Package
         shell: powershell
