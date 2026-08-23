@@ -50,16 +50,41 @@ jobs:
       - name: Copy CUDA runtime DLLs
         shell: powershell
         run: |
+          $ErrorActionPreference = "Stop"
+      
           $dst = "build\bin\Release"
-
-          Get-ChildItem "$env:CUDA_PATH\bin" -Filter "cudart64_*.dll" |
-            Copy-Item -Destination $dst
-
-          Get-ChildItem "$env:CUDA_PATH\bin" -Filter "cublas64_*.dll" |
-            Copy-Item -Destination $dst
-
-          Get-ChildItem "$env:CUDA_PATH\bin" -Filter "cublasLt64_*.dll" |
-            Copy-Item -Destination $dst
+      
+          $patterns = @(
+            "cudart64_*.dll",
+            "cublas64_*.dll",
+            "cublasLt64_*.dll"
+          )
+      
+          foreach ($pattern in $patterns) {
+            Write-Host ""
+            Write-Host "Searching for $pattern ..."
+      
+            $files = Get-ChildItem `
+              -Path $env:CUDA_PATH `
+              -Recurse `
+              -File `
+              -Filter $pattern
+      
+            if (-not $files) {
+              throw "CUDA runtime DLL not found: $pattern"
+            }
+      
+            foreach ($file in $files) {
+              Write-Host "Copying $($file.FullName)"
+              Copy-Item $file.FullName -Destination $dst -Force
+            }
+          }
+      
+          Write-Host ""
+          Write-Host "===== CUDA DLLs in output ====="
+      
+          Get-ChildItem $dst -Filter "*.dll" |
+            Select-Object Name, Length
 
       - name: Verify build
         shell: powershell
